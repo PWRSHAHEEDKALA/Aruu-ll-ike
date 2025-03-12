@@ -16,15 +16,21 @@ app = Flask(__name__)
 
 def load_tokens(server_name):
     try:
-        if server_name == "IND":
-            with open("token_ind.json", "r") as f:
-                tokens = json.load(f)
-        elif server_name in {"BR", "US", "SAC", "NA"}:
-            with open("token_br.json", "r") as f:
-                tokens = json.load(f)
-        else:
-            with open("token_bd.json", "r") as f:
-                tokens = json.load(f)
+        file_map = {
+            "IND": os.path.join(base_path, "token_ind.json"),
+            "BR": os.path.join(base_path, "token_br.json"),
+            "US": os.path.join(base_path, "token_br.json"),
+            "SAC": os.path.join(base_path, "token_br.json"),
+            "NA": os.path.join(base_path, "token_br.json"),
+        }
+        file_path = file_map.get(server_name, os.path.join(base_path, "token_bd.json"))
+        
+        with open(file_path, "r") as f:
+            tokens = json.load(f)
+
+        if not tokens or not isinstance(tokens, list):
+            raise Exception("Token list is empty or invalid format")
+
         return tokens
     except Exception as e:
         app.logger.error(f"Error loading tokens for server {server_name}: {e}")
