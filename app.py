@@ -16,21 +16,15 @@ app = Flask(__name__)
 
 def load_tokens(server_name):
     try:
-        file_map = {
-            "IND": os.path.join(base_path, "token_ind.json"),
-            "BR": os.path.join(base_path, "token_br.json"),
-            "US": os.path.join(base_path, "token_br.json"),
-            "SAC": os.path.join(base_path, "token_br.json"),
-            "NA": os.path.join(base_path, "token_br.json"),
-        }
-        file_path = file_map.get(server_name, os.path.join(base_path, "token_bd.json"))
-        
-        with open(file_path, "r") as f:
-            tokens = json.load(f)
-
-        if not tokens or not isinstance(tokens, list):
-            raise Exception("Token list is empty or invalid format")
-
+        if server_name == "IND":
+            with open("token_br.json", "r") as f:
+                tokens = json.load(f)
+        elif server_name in {"BR", "US", "SAC", "NA"}:
+            with open("token_bd.json", "r") as f:
+                tokens = json.load(f)
+        else:
+            with open("token_vn.json", "r") as f:
+                tokens = json.load(f)
         return tokens
     except Exception as e:
         app.logger.error(f"Error loading tokens for server {server_name}: {e}")
@@ -126,7 +120,7 @@ def enc(uid):
 def make_request(encrypt, server_name, token):
     try:
         url_map = {
-            "IND": "https://client.ind.freefiremobile.com/GetPlayerPersonalShow",
+            "ME": "https://clientbp.ggblueshark.com/GetPlayerPersonalShow",
             "BR": "https://client.us.freefiremobile.com/GetPlayerPersonalShow",
             "US": "https://client.us.freefiremobile.com/GetPlayerPersonalShow",
             "SAC": "https://client.us.freefiremobile.com/GetPlayerPersonalShow",
@@ -183,7 +177,7 @@ def handle_requests():
             before_like = int(json.loads(MessageToJson(before)).get('AccountInfo', {}).get('Likes', 0))
 
             url_map = {
-                "IND": "https://client.ind.freefiremobile.com/LikeProfile",
+                "ME": "https://clientbp.ggblueshark.com/LikeProfile",
                 "BR": "https://client.us.freefiremobile.com/LikeProfile",
                 "US": "https://client.us.freefiremobile.com/LikeProfile",
                 "SAC": "https://client.us.freefiremobile.com/LikeProfile",
@@ -197,17 +191,30 @@ def handle_requests():
             after = make_request(encrypted_uid, server_name, token)
             if after is None:
                 raise Exception("Failed to retrieve player info after like requests.")
-            after_like = int(json.loads(MessageToJson(after)).get('AccountInfo', {}).get('Likes', 0))
-
-            return {
-                "LikesGivenByAPI": after_like - before_like,
+            try:
+                jsone_after = MessageToJson(after)
+            except Exception as e:
+                raise Exception(f"Error converting 'after' protobuf to JSON: {e}")
+            data_after = json.loads(jsone_after)
+            after_like = int(data_after.get('AccountInfo', {}).get('Likes', 0))
+            player_uid = int(data_after.get('AccountInfo', {}).get('UID', 0))
+            player_name = str(data_after.get('AccountInfo', {}).get('PlayerNickname', ''))
+            like_given = after_like - before_like
+            status = 1 if like_given != 0 else 2
+            result = {
+                "LikesGivenByAPI": like_given,
                 "LikesafterCommand": after_like,
                 "LikesbeforeCommand": before_like,
-                "status": 1 if after_like > before_like else 2
+                "PlayerNickname": player_name,
+                "UID": player_uid,
+                "status": status
             }
+            return result
 
-        return jsonify(process_request())
+        result = process_request()
+        return jsonify(result)
     except Exception as e:
+        app.logger.error(f"Error processing request: {e}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
