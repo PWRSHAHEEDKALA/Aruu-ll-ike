@@ -13,7 +13,7 @@ import like_count_pb2
 import uid_generator_pb2
 from google.protobuf.message import DecodeError
 
-app = Flask(name)
+app = Flask(__name__)
 
 def load_tokens(server_name):
     try:
@@ -210,5 +210,5 @@ def handle_requests():
         app.logger.error(f"handle_requests error: {e}")
         return jsonify({"error":str(e)}), 500
 
-if name == 'main':
+if __name__ == '__main__':
     app.run(debug=True, use_reloader=False)
